@@ -1,0 +1,8 @@
+*.class
+*.*~
+gen
+.settings
+libs
+
+bin
+/build/
