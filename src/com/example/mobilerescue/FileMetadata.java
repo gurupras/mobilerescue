@@ -24,11 +24,6 @@ public class FileMetadata implements Serializable {
 			throw new IllegalStateException("File does not exist! :" + file.getAbsolutePath());
 	}
 	
-	public synchronized String getName() {
-		return file.getName();
-	}
-
-
 	public synchronized FileType getFileType() {
 		if(file.isFile())
 			return FileType.FILE;
@@ -38,19 +33,9 @@ public class FileMetadata implements Serializable {
 			return FileType.UNKNOWN;
 	}
 
-	public synchronized long getSize() {
-		return file.length();
-	}
-	
 	public synchronized File getFile() {
 		return file;
 	}
-
-	public synchronized Date getLastModified() {
-		Date d = new Date(file.lastModified());
-		return d;
-	}
-
 
 	public static enum FileType {
 		FILE("file"),

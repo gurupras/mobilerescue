@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.widget.Toast;
 
 public class Helper {
-	public static final String MAIN_TAG = "Mist";
+	public static final String MAIN_TAG = "MobileRescue";
 	
 	public static void makeToast(final String message) {
 		Activity activity = AndroidApplication.getInstance().getCurrentActivity();

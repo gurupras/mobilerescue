@@ -134,6 +134,8 @@ public class FileExplorerFragment extends Fragment {
 							String option = operations[which];
 							if(option.equals("UPLOAD")) {
 								Log.d(TAG, "Trying to upload :" + path);
+								UploadService upload = new UploadService(entry, activity.progressDialog);
+								upload.start();
 							}
 							else {
 								Log.e(TAG, "Unimplemented option  :" + option);

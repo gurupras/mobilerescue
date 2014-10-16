@@ -1,7 +1,10 @@
 package com.example.mobilerescue;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +43,7 @@ public class FileEntry extends HashSet<FileEntry> {
 	}
 	
 	public String getName() {
-		return this.metadata.getName();
+		return this.getFile().getName();
 	}
 	
 	public String getPath() {
@@ -60,7 +63,7 @@ public class FileEntry extends HashSet<FileEntry> {
 
 	@Override
 	public synchronized String toString() {
-		StringBuilder sb = new StringBuilder(this.metadata.getName() + "\n");
+		StringBuilder sb = new StringBuilder(this.getFile().getName() + "\n");
 		if(size() != 0) {
 			for(FileEntry childEntry : this) {
 				String s = childEntry.toString();
@@ -86,6 +89,34 @@ public class FileEntry extends HashSet<FileEntry> {
 	
 	public File getFile() {
 		return this.getFileMetadata().getFile();
+	}
+	
+	
+	public long getSize() {
+		if(this.getFile().isDirectory()) {
+			long totalSize = 0;
+			this.buildTree();
+			for(FileEntry child : this)
+				totalSize += child.getSize();
+			return totalSize;
+		}
+		else
+			return this.getFile().length();
+	}
+	
+	public ArrayList<File> getFiles() {
+		this.buildTree();
+		
+		ArrayList<File> fileList = new ArrayList<File>();
+		for(FileEntry entry : this) {
+			if(entry.getFile().isDirectory()) {
+				ArrayList<File> subList = entry.getFiles();
+				fileList.addAll(subList);
+			}
+			else
+				fileList.add(entry.getFile());
+		}
+		return fileList;
 	}
 	
 	public static FileEntry buildTree(String path) {
