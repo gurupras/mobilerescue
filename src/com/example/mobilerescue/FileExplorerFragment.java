@@ -30,7 +30,7 @@ public class FileExplorerFragment extends Fragment {
 	
 	private View rootView;
 	private ListView filesListView;
-	
+	private FilesAdapter rootAdapter;
 	private MainActivity activity;
 	
 	public FileExplorerFragment() {
@@ -45,24 +45,21 @@ public class FileExplorerFragment extends Fragment {
 		this.activity = (MainActivity) getActivity();
 		
 		
-		synchronized(isInitComplete) {
-			if(!isInitComplete) {
-				FileEntry root = FileEntry.buildTree(AndroidApplication.externalPath.getAbsolutePath());
-				AndroidApplication.getInstance().setRoot(root);
-				
-				FilesAdapter adapter = FilesAdapter.buildListAdapter(AndroidApplication.getInstance().getRoot());
-				filesListView.setAdapter(adapter);
-				filesListView.setOnItemClickListener(filesListViewItemListener);
-				filesListView.setOnItemLongClickListener(filesListViewItemLongClickListener);
-				isInitComplete = true;
-			}
-		}
-		
 		activity.progressDialog = new ProgressDialog(activity);
-
 		return rootView;
 	}
-	
+
+	@Override
+	public void onResume() {
+		super.onResume();
+		FileEntry root = FileEntry.buildTree(AndroidApplication.externalPath.getAbsolutePath());
+		AndroidApplication.getInstance().setRoot(root);
+		
+		this.rootAdapter = FilesAdapter.buildListAdapter(AndroidApplication.getInstance().getRoot());
+		filesListView.setAdapter(rootAdapter);
+		filesListView.setOnItemClickListener(filesListViewItemListener);
+		filesListView.setOnItemLongClickListener(filesListViewItemLongClickListener);
+	}
 	
 	private OnItemClickListener filesListViewItemListener = new OnItemClickListener() {
 		@Override

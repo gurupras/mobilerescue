@@ -108,14 +108,18 @@ public class FileEntry extends HashSet<FileEntry> {
 		this.buildTree();
 		
 		ArrayList<File> fileList = new ArrayList<File>();
-		for(FileEntry entry : this) {
-			if(entry.getFile().isDirectory()) {
-				ArrayList<File> subList = entry.getFiles();
-				fileList.addAll(subList);
+		if(this.getFile().isDirectory()) {
+			for(FileEntry entry : this) {
+				if(entry.getFile().isDirectory()) {
+					ArrayList<File> subList = entry.getFiles();
+					fileList.addAll(subList);
+				}
+				else
+					fileList.add(entry.getFile());
 			}
-			else
-				fileList.add(entry.getFile());
 		}
+		else
+			fileList.add(this.getFile());
 		return fileList;
 	}
 	
