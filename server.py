@@ -57,8 +57,10 @@ while 1:
         os.remove(filename)
     fd = open(filename, 'wb')
     offset = 0
+    max_buf_size = 2 * 1024 * 1024
     while offset < size:
-        data = sock.recv(size - offset)
+        buf_size = max_buf_size if (size - offset) > max_buf_size else (size - offset)
+        data = sock.recv(buf_size)
         fd.write(data)
         offset += len(data)
     fd.close()
