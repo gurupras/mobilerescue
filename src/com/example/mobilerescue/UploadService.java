@@ -1,5 +1,7 @@
 package com.example.mobilerescue;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -7,9 +9,16 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.example.mobilerescue.message.Message;
+import com.example.mobilerescue.message.UploadRequestMessage;
+import com.example.mobilerescue.message.UploadResponseMessage;
+import com.example.mobilerescue.message.UploadResponseMessage.UploadResponseType;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -69,27 +78,38 @@ public class UploadService extends Thread implements Runnable {
 				if(isCancelled.get())
 					break;
 				try {
-					Log.d("Socket", "Attempting to connect to :" + hostname + "@" + port);
+					Log.d(TAG, "Attempting to connect to :" + hostname + "@" + port);
 					socket = new Socket();
 					socket.setSoTimeout(2000);
 					socket.connect(new InetSocketAddress(hostname, port));
 				} catch (Exception e) {
-					Log.e("SocketException", "Message :" + e.getMessage());
+					Log.e(TAG, "Message :" + e.getMessage());
 					makeToast("Unable to connect to " + hostname);
 					e.printStackTrace();
 					return;
 				}
-				
+
 				outputStream.setOutputStream(socket.getOutputStream());
 				
-				ByteBuffer buffer = ByteBuffer.allocate(4 + file.getAbsolutePath().length() + 8);
+				UploadRequestMessage urqm = new UploadRequestMessage(entry);
+				urqm.init();
+				byte[] requestBytes = urqm.build();
+				outputStream.write(requestBytes);
+				outputStream.flush();
 				
-				buffer.order(ByteOrder.LITTLE_ENDIAN);
-				buffer.putInt(file.getAbsolutePath().length());
-				buffer.put(file.getAbsolutePath().getBytes());
-				buffer.putLong(file.length());
+				// Wait for server to send info on whether this file is needed
+				UploadResponseMessage ursm = new UploadResponseMessage();
+				ursm.init();
+				ByteBuffer responseBytes = ByteBuffer.allocate(ursm.getMessageLength());
+				DataInputStream socketInputStream = new DataInputStream(socket.getInputStream());				
+				socketInputStream.read(responseBytes.array());
+				ursm = (UploadResponseMessage) Message.parseMessage(responseBytes.array());
 				
-				outputStream.write(buffer.array());
+				if(ursm.getResponse() == UploadResponseType.FILE_FOUND) {
+					socket.close();
+					Log.d(TAG, "File Exists! '" + file.getAbsolutePath() + "'");
+					continue;
+				}
 				
 				long offset = (long) 0;
 				InputStream instream = new FileInputStream(file);

@@ -63,7 +63,7 @@ public class MainActivity extends ActionBarActivity {
 		private static final String TAG = Helper.MAIN_TAG + "->Settings";
 		private View rootView;
 		private Activity activity;
-		public static String hostname = "192.168.2.3";
+		public static String hostname = "dirtydeeds.cse.buffalo.edu";
 		
 		public SettingsFragment() {
 			setRetainInstance(true);

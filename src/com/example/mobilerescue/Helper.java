@@ -1,5 +1,7 @@
 package com.example.mobilerescue;
 
+import java.math.BigInteger;
+
 import android.app.Activity;
 import android.widget.Toast;
 
@@ -14,5 +16,33 @@ public class Helper {
 						message, Toast.LENGTH_SHORT).show();
 			}
 		});
+	}
+	
+	public static String pad(String string, int totalLength) {
+		StringBuilder builder = new StringBuilder(string);
+		int currentLength = builder.toString().length();
+		int padLength = totalLength - currentLength;
+		while(padLength-- > 0)
+			builder.append(" ");
+		return builder.toString();
+	}
+	
+	/**
+	 * Helps to create a new tag that is a combination of two tags
+	 * @param mainTag {@code String}
+	 * @param subTag {@code String}
+	 * @return {@code String} combining the two tags
+	 */
+	public static String createTag(String mainTag, String subTag) {
+		return mainTag + "->" + subTag;
+	}
+	
+	public static String toHex(byte[] arrayBytes) {
+	    StringBuffer stringBuffer = new StringBuffer();
+	    for (int i = 0; i < arrayBytes.length; i++) {
+	        stringBuffer.append(Integer.toString((arrayBytes[i] & 0xff) + 0x100, 16)
+	                .substring(1));
+	    }
+	    return stringBuffer.toString();
 	}
 }

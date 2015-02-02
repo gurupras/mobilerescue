@@ -75,6 +75,10 @@ public class FileExplorerFragment extends Fragment {
 							newAdapter = adapter.getParentAdapter();
 						}
 					}
+					else if(position == 1) {
+						// Special case '.'
+						newAdapter = adapter;
+					}
 					else {
 //						Since position 0 is occupied for '..', we subtract 1 from position to get child
 						int newPosition = position - 1;
@@ -113,14 +117,24 @@ public class FileExplorerFragment extends Fragment {
 					
 					int itemPosition = position;
 					
-					if(itemPosition == 0)
-						return;
-					
-//					Position is non-zero..handle the '..' hack
-					itemPosition--;
-					
-					FilesAdapter adapter = (FilesAdapter) filesListView.getAdapter();
-					final FileEntry entry = adapter.getChildAdapterList().get(itemPosition).getEntry();
+					FilesAdapter adapter = ((FilesAdapter) filesListView.getAdapter());
+					FileEntry adapterEntry = null;
+					if(itemPosition == 0) {
+						adapter = adapter.getParentAdapter();
+						if(adapter == null)
+							return;
+						adapterEntry = adapter.getEntry();
+					}
+					else if(itemPosition == 1) {
+						adapterEntry = adapter.getEntry();
+					}
+
+					else {
+						// Position is non-zero..handle the '..' and '.' hack
+						itemPosition -= 2;
+						adapterEntry = adapter.getChildAdapterList().get(itemPosition).getEntry();
+					}
+					final FileEntry entry = adapterEntry;
 					final String path = entry.getPath();
 					
 					AlertDialog.Builder dialog = new AlertDialog.Builder(activity);
@@ -197,6 +211,7 @@ public class FileExplorerFragment extends Fragment {
 				tk.start();
 				super.clear();
 				this.add("..");
+				this.add(".");
 				for(FileEntry child : entry) {
 					FilesAdapter childAdapter = new FilesAdapter(child, this);
 					this.childAdapterList.add(childAdapter);
