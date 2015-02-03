@@ -1,23 +1,33 @@
 import socket
-import sys
-import struct
-import os
+import sys, struct, os
+import argparse
 import hashlib
+
+from abc import abstractmethod
 
 
 class Message(object):
-	@staticmethod
-	def send_file_not_found(sock):
-		header = struct.pack('i', 12)
-		header += struct.pack('i', 1)	# 1 = UploadResponseMessage
-		header += struct.pack('i', 0)	# 0 = FileNotFound
-		sock.send(header)
-	@staticmethod
-	def send_file_found(sock):
-		header = struct.pack('i', 12)
-		header += struct.pack('i', 1)	# 1 = UploadResponseMessage
-		header += struct.pack('i', 0)	# 1 = FileFound
-		sock.send(header)
+	message_length = None
+	message_type   = None
+
+	@abstractmethod
+	def build(self):
+		raise Exception('Unimplemented')
+
+class UploadResponseMessage(Message):
+	response       = -1
+	FILE_FOUND     = 1
+	FILE_NOT_FOUND = 0
+
+	def __init__(self):
+		self.message_length = 4 + 4 + 4	# length + type + response
+		self.message_type = 1
+
+	def build(self):
+		header  = struct.pack('i', self.message_length)
+		header += struct.pack('i', self.message_type)
+		header += struct.pack('i', self.response)
+		return header
 
 def decode_header(sock):
 	message_length = struct.unpack('i', sock.recv(4))[0]
@@ -49,22 +59,32 @@ def recv_file(filename, size, sock):
 def compute_sha256(filename):
 	sha256 = hashlib.sha256()
 	with open(filename, 'rb') as f:
-		sha256.update(f.read())
+		for chunk in iter(lambda: f.read(2**20), b''):
+			sha256.update(chunk)
 	return sha256
 
-def main(argv):
-	if len(argv) != 2:
-		print __file__ + ' <out_path>'
-		sys.exit(-1)
+def setup_parser():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-o', '--out', action="store", type=str, required=True, help='Path to store received files')
+	parser.add_argument('-p', '--port', action="store", type=int, default=30000, help='Port to use for the server')
+	parser.add_argument('-t', '--test', action="store", type=str, help='Test hash function')
+	return parser
 
-	if not os.path.exists(argv[1]):
+def main(argv):
+	parser = setup_parser()
+	args   = parser.parse_args(argv[1:])
+
+	if not os.path.exists(args.out):
 		print 'Out path does not exist!'
 		sys.exit(-1)
 
+	if args.test:
+		print compute_sha256(args.test).hexdigest()
+		return
 
 	host = ''
-	port = 30000
-	out_path = argv[1]
+	port = args.port
+	out_path = args.out
 
 
 	server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -93,6 +113,8 @@ def main(argv):
 			os.makedirs(os.path.dirname(filename))
 		except Exception:
 			pass
+
+		urm = UploadResponseMessage()
 		if os.path.exists(filename):
 			my_checksum = compute_sha256(filename).hexdigest()
 			if my_checksum != checksum:
@@ -100,13 +122,19 @@ def main(argv):
 				print '  Request checksum   :%s' % (checksum)
 				print '  My checksum        :%s' % (my_checksum)
 				os.remove(filename)
-				Message.send_file_not_found(sock)
+				urm.response = UploadResponseMessage.FILE_NOT_FOUND
+				message = urm.build()
+				sock.send(message)
 				recv_file(filename, size, sock)
 			else:
 				print 'File exists, checksums match!'
-				Message.send_file_found(sock)
+				urm.response = UploadResponseMessage.FILE_FOUND
+				message = urm.build()
+				sock.send(message)
 		else:
-			Message.send_file_not_found(sock)
+			urm.response = UploadResponseMessage.FILE_NOT_FOUND
+			message = urm.build()
+			sock.send(message)
 			recv_file(filename, size, sock)
 
 if __name__ == "__main__":
