@@ -21,7 +21,7 @@ class UploadResponseMessage(Message):
 
 	def __init__(self):
 		self.message_length = 4 + 4 + 4	# length + type + response
-		self.message_type = 1
+		self.message_type = 2
 
 	def build(self):
 		header  = struct.pack('i', self.message_length)
