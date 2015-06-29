@@ -17,3 +17,5 @@ libs
 
 bin
 build/
+
+/.idea
