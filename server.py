@@ -5,6 +5,10 @@ import hashlib
 
 from abc import abstractmethod
 
+import multiprocessing
+from multiprocessing.pool import ThreadPool
+
+import tempfile
 
 class Message(object):
 	message_length = None
@@ -53,8 +57,10 @@ def recv_file(filename, size, sock):
 		fd.write(data)
 		offset += len(data)
 	fd.close()
-	print 'Received file :%s' % (filename)
-	print ''
+
+	if args.verbose:
+		print 'Received file :%s' % (filename)
+		print ''
 
 def compute_sha256(filename):
 	sha256 = hashlib.sha256()
@@ -65,26 +71,79 @@ def compute_sha256(filename):
 
 def setup_parser():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-o', '--out', action="store", type=str, required=True, help='Path to store received files')
+	parser.add_argument('-o', '--out', action="store", type=str, default=None, help='Path to store received files')
 	parser.add_argument('-p', '--port', action="store", type=int, default=30000, help='Port to use for the server')
 	parser.add_argument('-t', '--test', action="store", type=str, help='Test hash function')
+	parser.add_argument('-T', '--threads', action="store", type=int, default=multiprocessing.cpu_count() * 2, help='Number of threads to use. Default = CPUS*2')
+	parser.add_argument('-v', '--verbose', action="store_true", help='Enable verbose logging')
 	return parser
 
+def process(sock):
+	filename, size, checksum = decode_header(sock)
+	if args.verbose:
+		print 'Filename :' + filename
+		print 'Size     :' + str(size)
+
+	if filename.startswith('/'):
+		filename = args.out + '/' + filename[1:]
+
+	if args.verbose:
+		print 'Out path :' + filename
+	try:
+		os.makedirs(os.path.dirname(filename))
+	except Exception:
+		pass
+
+	urm = UploadResponseMessage()
+	if os.path.exists(filename):
+		my_checksum = compute_sha256(filename).hexdigest()
+		if my_checksum != checksum:
+			if args.verbose:
+				print 'File exists but checksums don\'t match!'
+				print '  Request checksum   :%s' % (checksum)
+				print '  My checksum        :%s' % (my_checksum)
+			os.remove(filename)
+			urm.response = UploadResponseMessage.FILE_NOT_FOUND
+			message = urm.build()
+			sock.send(message)
+			recv_file(filename, size, sock)
+		else:
+			if args.verbose:
+				print 'File exists, checksums match!'
+			urm.response = UploadResponseMessage.FILE_FOUND
+			message = urm.build()
+			sock.send(message)
+	else:
+		urm.response = UploadResponseMessage.FILE_NOT_FOUND
+		message = urm.build()
+		sock.send(message)
+		recv_file(filename, size, sock)
+
 def main(argv):
+	global args
 	parser = setup_parser()
 	args   = parser.parse_args(argv[1:])
-
-	if not os.path.exists(args.out):
-		print 'Out path does not exist!'
-		sys.exit(-1)
 
 	if args.test:
 		print compute_sha256(args.test).hexdigest()
 		return
 
+	if not args.out:
+		args.out = tempfile.mkdtemp(dir=os.getcwd())
+	if not os.path.exists(args.out):
+		print "Out path '%s' does not exist!" % (args.out)
+		sys.exit(-1)
+
+	if args.verbose:
+		print 'Port:          %d' % (args.port)
+		print 'Output path:   %s' % (args.out)
+		print '# Threads:     %d' % (args.threads)
+
+	# Initialize the pool
+	pool = ThreadPool(processes=args.threads)
+
 	host = ''
 	port = args.port
-	out_path = args.out
 
 
 	server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,44 +157,12 @@ def main(argv):
 
 	server_socket.listen(10)
 
+	if args.verbose: print 'Waiting for incoming connection ...'
 	while 1:
 		sock, addr = server_socket.accept()
-		print 'Received connection!'
-		filename, size, checksum = decode_header(sock)
-		print 'Filename :' + filename
-		print 'Size     :' + str(size)
-
-		if filename.startswith('/'):
-			filename = out_path + '/' + filename[1:]
-
-		print 'Out path :' + filename
-		try:
-			os.makedirs(os.path.dirname(filename))
-		except Exception:
-			pass
-
-		urm = UploadResponseMessage()
-		if os.path.exists(filename):
-			my_checksum = compute_sha256(filename).hexdigest()
-			if my_checksum != checksum:
-				print 'File exists but checksums don\'t match!'
-				print '  Request checksum   :%s' % (checksum)
-				print '  My checksum        :%s' % (my_checksum)
-				os.remove(filename)
-				urm.response = UploadResponseMessage.FILE_NOT_FOUND
-				message = urm.build()
-				sock.send(message)
-				recv_file(filename, size, sock)
-			else:
-				print 'File exists, checksums match!'
-				urm.response = UploadResponseMessage.FILE_FOUND
-				message = urm.build()
-				sock.send(message)
-		else:
-			urm.response = UploadResponseMessage.FILE_NOT_FOUND
-			message = urm.build()
-			sock.send(message)
-			recv_file(filename, size, sock)
+		if args.verbose: print 'Received connection from :%s' % (str(addr))
+#pool.apply_async(process, sock, callback=None)
+		process(sock)
 
 if __name__ == "__main__":
 	main(sys.argv)
