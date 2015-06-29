@@ -99,23 +99,23 @@ public class FileEntry extends HashSet<FileEntry> {
 			return this.getFile().length();
 	}
 	
-	public ArrayList<File> getFiles() {
+	public ArrayList<FileEntry> getFiles() {
 		this.buildTree();
 		
-		ArrayList<File> fileList = new ArrayList<File>();
+		ArrayList<FileEntry> entryList = new ArrayList<FileEntry>();
 		if(this.getFile().isDirectory()) {
 			for(FileEntry entry : this) {
 				if(entry.getFile().isDirectory()) {
-					ArrayList<File> subList = entry.getFiles();
-					fileList.addAll(subList);
+					ArrayList<FileEntry> subList = entry.getFiles();
+					entryList.addAll(subList);
 				}
 				else
-					fileList.add(entry.getFile());
+					entryList.add(entry);
 			}
 		}
 		else
-			fileList.add(this.getFile());
-		return fileList;
+			entryList.add(this);
+		return entryList;
 	}
 	
 	public static FileEntry buildTree(String path) {

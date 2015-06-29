@@ -88,6 +88,7 @@ public abstract class Message {
 		message = (Message) messageClass.newInstance();
 		message.setMessageLength(messageLength);
 		message.setMessageType(messageType);
+		message.parse(buffer.array());
 		return message;
 	}
 

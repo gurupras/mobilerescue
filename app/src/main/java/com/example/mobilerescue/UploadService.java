@@ -53,10 +53,10 @@ public class UploadService extends Thread implements Runnable {
 			final ProgressOutputStream outputStream = new ProgressOutputStream(null);
 			
 			final AtomicLong totalSize = new AtomicLong(0);
-			final ArrayList<File> fileList = entry.getFiles();
+			final ArrayList<FileEntry> fileList = entry.getFiles();
 
-			for(File f : fileList)
-				totalSize.addAndGet(f.length());
+			for(FileEntry e : fileList)
+				totalSize.addAndGet(e.getFile().length());
 
 			final Activity activity = AndroidApplication.getInstance().getCurrentActivity();
 			final AtomicBoolean isCancelled = new AtomicBoolean(false);
@@ -78,7 +78,8 @@ public class UploadService extends Thread implements Runnable {
 			activity.runOnUiThread(r);
 			
 			
-			for(File file : fileList) {
+			for(FileEntry entry : fileList) {
+				File file = entry.getFile();
 				if(isCancelled.get())
 					break;
 				try {
