@@ -52,6 +52,7 @@ public class MainActivity extends ActionBarActivity {
 		settings = getSharedPreferences("settings", MODE_PRIVATE);
 		try {
 			SettingsFragment.hostname = settings.getString("hostname", SettingsFragment.hostname);
+			SettingsFragment.port = settings.getInt("port", SettingsFragment.port);
 		} catch(Exception e) {
 			Log.e(TAG, "Unhandled exception :" + e);
 			e.printStackTrace();
@@ -85,6 +86,7 @@ public class MainActivity extends ActionBarActivity {
 		private View rootView;
 		private Activity activity;
 		public static String hostname = "dirtydeeds.cse.buffalo.edu";
+		public static int port = 30000;
 
 		public SettingsFragment() {
 			setRetainInstance(true);
@@ -95,11 +97,18 @@ public class MainActivity extends ActionBarActivity {
 		public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 			rootView = inflater.inflate(R.layout.fragment_settings, container, false);
 			final EditText hostnameEditText = (EditText) rootView.findViewById(R.id.hostname_edittext);
+			final EditText portEditText = (EditText) rootView.findViewById(R.id.port_edittext);
+
+			hostname = MainActivity.settings.getString("hostname", hostname);
+			port = MainActivity.settings.getInt("port", port);
+
 			hostnameEditText.setText(hostname);
+			portEditText.setText("" + port);
 			rootView.setFocusableInTouchMode(true);
 			rootView.requestFocus();
 			rootView.setOnKeyListener(keyListener);
 			hostnameEditText.setOnKeyListener(keyListener);
+			portEditText.setOnKeyListener(keyListener);
 			return rootView;
 		}
 		
@@ -107,12 +116,16 @@ public class MainActivity extends ActionBarActivity {
 			public boolean onKey(View v, int keyCode, KeyEvent event) {
 				if (keyCode == KeyEvent.KEYCODE_BACK) {
 					EditText hostnameEditText = (EditText) rootView.findViewById(R.id.hostname_edittext);
+					EditText portEditText = (EditText) rootView.findViewById(R.id.port_edittext);
 					hostname = hostnameEditText.getText().toString();
-					Log.d(TAG, "hostname :" + hostname);
+					port = Integer.parseInt(portEditText.getText().toString());
+					Log.d(TAG, "hostname :" + hostname + "@" + port);
 					SharedPreferences.Editor editor = MainActivity.settings.edit();
 					editor.putString("hostname", hostname);
+					editor.putInt("port", port);
 					editor.commit();
 					activity.onBackPressed();
+					Helper.makeToast("Using: " + hostname + "@" + port);
 					return true;
 				}
 				return false;
