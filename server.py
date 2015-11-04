@@ -33,6 +33,13 @@ class UploadResponseMessage(Message):
 		header += struct.pack('i', self.response)
 		return header
 
+class UploadRequestMessage(Message):
+	def __init__(self, filename, is_file, size, checksum):
+		self.filename = filename
+		self.is_file = True if is_file == 1 else False
+		self.size = size
+		self.checksum = checksum
+
 def decode_header(sock):
 	message_length = struct.unpack('i', sock.recv(4))[0]
 	message_type   = struct.unpack('i', sock.recv(4))[0]
@@ -40,11 +47,12 @@ def decode_header(sock):
 	filename_len   = struct.unpack('i', sock.recv(4))[0]
 	filename       = struct.unpack('%ds' % (filename_len), \
 						sock.recv(filename_len))[0]
+	is_file        = struct.unpack('i', sock.recv(4))[0]
 	size           = struct.unpack('q', sock.recv(8))[0]
 
 	checksum       = struct.unpack('64s', sock.recv(64))[0]
 
-	return filename, size, checksum
+	return UploadRequestMessage(filename, is_file, size, checksum)
 
 
 def recv_file(filename, size, sock):
@@ -79,7 +87,11 @@ def setup_parser():
 	return parser
 
 def process(sock):
-	filename, size, checksum = decode_header(sock)
+	urqm = decode_header(sock)
+	filename = urqm.filename
+	size = urqm.size
+	checksum = urqm.checksum
+	
 	if args.verbose:
 		print 'Filename :' + filename
 		print 'Size     :' + str(size)
@@ -89,12 +101,29 @@ def process(sock):
 
 	if args.verbose:
 		print 'Out path :' + filename
-	try:
-		os.makedirs(os.path.dirname(filename))
-	except Exception:
-		pass
+
+	if not urqm.is_file:
+		try:
+			os.makedirs(filename)
+		except:
+			assert os.path.exists(filename)
+	else:
+		dirname = os.path.dirname(filename)
+		try:
+			os.makedirs(dirname)
+		except Exception:
+			assert os.path.exists(dirname)
 
 	urm = UploadResponseMessage()
+	
+	# If directory, we already created it. Just return with FILE_FOUND
+	if not urqm.is_file:
+		urm.response = UploadResponseMessage.FILE_FOUND
+		message = urm.build()
+		sock.send(message)
+		return
+
+	# It's a file..handle it
 	if os.path.exists(filename):
 		my_checksum = compute_sha256(filename).hexdigest()
 		if my_checksum != checksum:

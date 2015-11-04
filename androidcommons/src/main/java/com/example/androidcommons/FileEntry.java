@@ -40,7 +40,10 @@ public class FileEntry extends HashSet<FileEntry> {
 	public String getName() {
 		return this.getFile().getName();
 	}
-	
+
+	public boolean isDir() { return this.getFile().isDirectory(); }
+	public boolean isFile() { return this.getFile().isFile(); }
+
 	public String getPath() {
 		StringBuilder sb = new StringBuilder();
 		if(getParent() == null)
@@ -89,11 +92,7 @@ public class FileEntry extends HashSet<FileEntry> {
 	
 	public long getSize() {
 		if(this.getFile().isDirectory()) {
-			long totalSize = 0;
-			this.buildTree();
-			for(FileEntry child : this)
-				totalSize += child.getSize();
-			return totalSize;
+			return 0;
 		}
 		else
 			return this.getFile().length();
@@ -103,6 +102,7 @@ public class FileEntry extends HashSet<FileEntry> {
 		this.buildTree();
 		
 		ArrayList<FileEntry> entryList = new ArrayList<FileEntry>();
+		entryList.add(this);
 		if(this.getFile().isDirectory()) {
 			for(FileEntry entry : this) {
 				if(entry.getFile().isDirectory()) {
@@ -113,8 +113,6 @@ public class FileEntry extends HashSet<FileEntry> {
 					entryList.add(entry);
 			}
 		}
-		else
-			entryList.add(this);
 		return entryList;
 	}
 	

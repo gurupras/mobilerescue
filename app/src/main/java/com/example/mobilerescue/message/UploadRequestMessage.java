@@ -21,6 +21,7 @@ public class UploadRequestMessage extends Message {
 	private String path;
 	private long fileSize;
 	private String checksum;
+	private int isFile;
 
 	static {
 		Message.register(UploadRequestMessage.class);
@@ -35,49 +36,48 @@ public class UploadRequestMessage extends Message {
 		this.setEntry(entry);
 		this.setPath(entry.getPath());
 		this.setFileSize(entry.getSize());
+		this.isFile = entry.isFile() == true ? 1 : 0;
 	}
 
 	@Override
 	public void init() {
-		setMessageLength(((Integer.SIZE * 2) / 8) + (Integer.SIZE / 8) + 
-				getEntry().getPath().length() + (Long.SIZE / 8) + 64 /* sha-256 */);
+		setMessageLength((
+				(Integer.SIZE * 2) / 8) /* message length + message type*/ +
+				(Integer.SIZE / 8) /* path length */ +
+				getEntry().getPath().length() /* path */ +
+				(Integer.SIZE / 8) /* isFile */ +
+				(Long.SIZE / 8) /* file size */ +
+				64 /* sha-256 */
+		);
 	}
 
 	@Override
 	public byte[] build() {
 		ByteBuffer buffer = ByteBuffer.allocate(getMessageLength());
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
-		buffer.putInt(getMessageLength());
-		buffer.putInt(getMessageType());
+		buffer.putInt(getMessageLength());	/* message length */
+		buffer.putInt(getMessageType());	/* message type */
 
 		try {
 			String path = getEntry().getPath();
-			buffer.putInt(path.length());
-			buffer.put(path.getBytes("UTF-8"));
+			buffer.putInt(path.length());	/* path length */
+			buffer.put(path.getBytes("UTF-8"));	/* path */
+			buffer.putInt(isFile);	/* isFile */
 		} catch (UnsupportedEncodingException e) {
 			Log.e(TAG, e.getMessage());
 			Log.e(TAG, Log.getStackTraceString(e));
 			e.printStackTrace();
 		}
 		buffer.putLong(getEntry().getSize());
-		
-		MessageDigest sha256 = null;
-		try {
-			sha256 = MessageDigest.getInstance("SHA-256");
-			ByteBuffer fileBuffer = ByteBuffer.allocate(4096);
-			InputStream instream  = new FileInputStream(entry.getFile());
-			DigestInputStream dis = new DigestInputStream(instream, sha256);
-			int readLength = 0;
-			while((readLength = instream.read(fileBuffer.array())) != -1)
-				sha256.update(fileBuffer.array(), 0, readLength);
-			dis.close();
-			checksum = Helper.toHex(sha256.digest());
-			buffer.put(checksum.getBytes("UTF-8"));
-		} catch(Exception e) {
-			Log.e(TAG, "Checksum error for file '" + entry.getPath() + "'");
-			Log.e(TAG, Log.getStackTraceString(e));
-		}
 
+		byte[] hash = null;
+		if(isFile == 1) {
+			hash = getHash(this.entry);
+		}
+		else {
+			hash = getHash("0");
+		}
+		buffer.put(hash);
 		return buffer.array();
 	}
 
@@ -99,6 +99,40 @@ public class UploadRequestMessage extends Message {
 		this.setEntry(null);
 	}
 
+	private byte[] getHash(FileEntry entry) {
+		MessageDigest sha256 = null;
+		try {
+			sha256 = MessageDigest.getInstance("SHA-256");
+			ByteBuffer fileBuffer = ByteBuffer.allocate(4096);
+			InputStream instream = new FileInputStream(entry.getFile());
+			DigestInputStream dis = new DigestInputStream(instream, sha256);
+			int readLength = 0;
+			while ((readLength = instream.read(fileBuffer.array())) != -1)
+				sha256.update(fileBuffer.array(), 0, readLength);
+			dis.close();
+			checksum = Helper.toHex(sha256.digest());
+			return checksum.getBytes("UTF-8");
+		} catch (Exception e) {
+			Log.e(TAG, "Checksum error for file '" + entry.getPath() + "'");
+			Log.e(TAG, Log.getStackTraceString(e));
+		}
+		return null;
+	}
+
+	private byte[] getHash(String string) {
+		MessageDigest sha256 = null;
+		try {
+			sha256 = MessageDigest.getInstance("SHA-256");
+			byte[] bytes = string.getBytes("UTF-8");
+			sha256.update(bytes);
+			checksum = Helper.toHex(sha256.digest());
+			return checksum.getBytes("UTF-8");
+		} catch (Exception e) {
+			Log.e(TAG, "Checksum error for file '" + entry.getPath() + "'");
+			Log.e(TAG, Log.getStackTraceString(e));
+		}
+		return null;
+	}
 	/**
 	 * @return the entry
 	 */
