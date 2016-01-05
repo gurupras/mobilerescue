@@ -98,41 +98,56 @@ public class UploadRequestMessage extends Message {
 
 		this.setEntry(null);
 	}
-
-	private byte[] getHash(FileEntry entry) {
-		MessageDigest sha256 = null;
-		try {
-			sha256 = MessageDigest.getInstance("SHA-256");
-			ByteBuffer fileBuffer = ByteBuffer.allocate(4096);
-			InputStream instream = new FileInputStream(entry.getFile());
-			DigestInputStream dis = new DigestInputStream(instream, sha256);
-			int readLength = 0;
-			while ((readLength = instream.read(fileBuffer.array())) != -1)
-				sha256.update(fileBuffer.array(), 0, readLength);
-			dis.close();
-			checksum = Helper.toHex(sha256.digest());
-			return checksum.getBytes("UTF-8");
-		} catch (Exception e) {
-			Log.e(TAG, "Checksum error for file '" + entry.getPath() + "'");
-			Log.e(TAG, Log.getStackTraceString(e));
-		}
-		return null;
+	
+	public void parse(InputStream iStream) throws Exception {
+		ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		int messageLength = buffer.getInt();
+		
+		buffer = ByteBuffer.allocate(Integer.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		int messageType = buffer.getInt();
+		
+		buffer = ByteBuffer.allocate(Integer.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		int FilenameLength = buffer.getInt();
+		
+		buffer = ByteBuffer.allocate(FilenameLength);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		String filename = new String(buffer.array(), "UTF-8");
+		
+		buffer = ByteBuffer.allocate(Integer.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		int isFile = buffer.getInt();
+		
+		buffer = ByteBuffer.allocate(Long.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		long size = buffer.getLong();
+		
+		buffer = ByteBuffer.allocate(64);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		String checksum = new String(buffer.array(), "UTF-8");
+		
+		this.checksum = checksum;
+		this.fileSize = size;
+		this.isFile = isFile;
+		this.path = filename;
 	}
 
-	private byte[] getHash(String string) {
-		MessageDigest sha256 = null;
-		try {
-			sha256 = MessageDigest.getInstance("SHA-256");
-			byte[] bytes = string.getBytes("UTF-8");
-			sha256.update(bytes);
-			checksum = Helper.toHex(sha256.digest());
-			return checksum.getBytes("UTF-8");
-		} catch (Exception e) {
-			Log.e(TAG, "Checksum error for file '" + entry.getPath() + "'");
-			Log.e(TAG, Log.getStackTraceString(e));
-		}
-		return null;
+	/**
+	 * @return isFile
+	 */
+	public int isFile() {
+		return this.isFile;
 	}
+	
 	/**
 	 * @return the entry
 	 */
