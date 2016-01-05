@@ -72,10 +72,10 @@ public class UploadRequestMessage extends Message {
 
 		byte[] hash = null;
 		if(isFile == 1) {
-			hash = getHash(this.entry);
+			hash = MessageHelper.getHash(this.entry);
 		}
 		else {
-			hash = getHash("0");
+			hash = MessageHelper.getHash("0");
 		}
 		buffer.put(hash);
 		return buffer.array();
