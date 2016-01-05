@@ -43,6 +43,27 @@
         android:layout_height="wrap_content"
         android:layout_alignBaseline="@+id/port_textview"
         android:layout_alignBottom="@+id/port_textview"
-        android:layout_marginLeft="17dp"
-        android:layout_toRightOf="@+id/port_textview" />
+        android:layout_alignLeft="@+id/hostname_edittext"
+        android:layout_toRightOf="@+id/port_textview"
+        android:inputType="number" />
+
+    <TextView
+        android:id="@+id/serverPort_textview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:focusable="false"
+        android:text="Server Port"
+        android:layout_marginTop="17dp"
+        android:layout_below="@+id/port_textview"
+        android:layout_alignLeft="@+id/hostname_display_textview" />
+
+    <EditText
+        android:id="@+id/serverPort_edittext"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/serverPort_textview"
+        android:layout_alignBottom="@+id/serverPort_textview"
+        android:layout_toRightOf="@+id/serverPort_textview"
+        android:layout_alignLeft="@+id/hostname_edittext"
+        android:inputType="number" />
 </RelativeLayout>

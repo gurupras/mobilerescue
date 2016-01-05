@@ -30,6 +30,8 @@ public class MainActivity extends ActionBarActivity {
 	ProgressDialog progressDialog;
 	public static SharedPreferences settings;
 	public static AndroidApplication application;
+	public static DownloadService downloadService;
+	
 	private static String TAG = "MobileRescue";
 
 	static {
@@ -58,6 +60,8 @@ public class MainActivity extends ActionBarActivity {
 			e.printStackTrace();
 		}
 		Helper.makeToast("Server: " + SettingsFragment.hostname);
+		downloadService = new DownloadService();
+		downloadService.start();
 	}
 
 	@Override
@@ -87,6 +91,7 @@ public class MainActivity extends ActionBarActivity {
 		private Activity activity;
 		public static String hostname = "dirtydeeds.cse.buffalo.edu";
 		public static int port = 30000;
+		public static int serverPort = 13256;
 
 		public SettingsFragment() {
 			setRetainInstance(true);
@@ -98,17 +103,22 @@ public class MainActivity extends ActionBarActivity {
 			rootView = inflater.inflate(R.layout.fragment_settings, container, false);
 			final EditText hostnameEditText = (EditText) rootView.findViewById(R.id.hostname_edittext);
 			final EditText portEditText = (EditText) rootView.findViewById(R.id.port_edittext);
+			final EditText serverPortEditText = (EditText) rootView.findViewById(R.id.serverPort_edittext);
 
 			hostname = MainActivity.settings.getString("hostname", hostname);
 			port = MainActivity.settings.getInt("port", port);
-
+			serverPort = MainActivity.settings.getInt("serverPort", 13256);
+			
 			hostnameEditText.setText(hostname);
 			portEditText.setText("" + port);
+			serverPortEditText.setText("" + serverPort);
+			
 			rootView.setFocusableInTouchMode(true);
 			rootView.requestFocus();
 			rootView.setOnKeyListener(keyListener);
 			hostnameEditText.setOnKeyListener(keyListener);
 			portEditText.setOnKeyListener(keyListener);
+			serverPortEditText.setOnKeyListener(keyListener);
 			return rootView;
 		}
 		
@@ -117,15 +127,23 @@ public class MainActivity extends ActionBarActivity {
 				if (keyCode == KeyEvent.KEYCODE_BACK) {
 					EditText hostnameEditText = (EditText) rootView.findViewById(R.id.hostname_edittext);
 					EditText portEditText = (EditText) rootView.findViewById(R.id.port_edittext);
+					EditText serverPortEditText = (EditText) rootView.findViewById(R.id.serverPort_edittext);
 					hostname = hostnameEditText.getText().toString();
 					port = Integer.parseInt(portEditText.getText().toString());
+					serverPort = Integer.parseInt(serverPortEditText.getText().toString());
 					Log.d(TAG, "hostname :" + hostname + "@" + port);
 					SharedPreferences.Editor editor = MainActivity.settings.edit();
 					editor.putString("hostname", hostname);
 					editor.putInt("port", port);
+					editor.putInt("serverPort", serverPort);
 					editor.commit();
 					activity.onBackPressed();
 					Helper.makeToast("Using: " + hostname + "@" + port);
+					if(downloadService.port != serverPort) {
+						downloadService.interrupt();
+						downloadService = new DownloadService();
+						downloadService.start();
+					}
 					return true;
 				}
 				return false;
