@@ -18,7 +18,7 @@ public class UploadResponseMessage extends Message {
 		super(UploadResponseMessage.class);
 	}
 
-	public UploadResponseMessage(UploadResponseType response, int fileCount) {
+	public UploadResponseMessage(UploadResponseType response) {
 		this();
 		this.setResponse(response);
 	}
