@@ -28,9 +28,9 @@ class UploadResponseMessage(Message):
 		self.message_type = 2
 
 	def build(self):
-		header  = struct.pack('i', self.message_length)
-		header += struct.pack('i', self.message_type)
-		header += struct.pack('i', self.response)
+		header  = struct.pack('<i', self.message_length)
+		header += struct.pack('<i', self.message_type)
+		header += struct.pack('<i', self.response)
 		return header
 
 class UploadRequestMessage(Message):
@@ -41,16 +41,16 @@ class UploadRequestMessage(Message):
 		self.checksum = checksum
 
 def decode_header(sock):
-	message_length = struct.unpack('i', sock.recv(4))[0]
-	message_type   = struct.unpack('i', sock.recv(4))[0]
+	message_length = struct.unpack('<i', sock.recv(4))[0]
+	message_type   = struct.unpack('<i', sock.recv(4))[0]
 
-	filename_len   = struct.unpack('i', sock.recv(4))[0]
-	filename       = struct.unpack('%ds' % (filename_len), \
+	filename_len   = struct.unpack('<i', sock.recv(4))[0]
+	filename       = struct.unpack('<%ds' % (filename_len), \
 						sock.recv(filename_len))[0]
-	is_file        = struct.unpack('i', sock.recv(4))[0]
-	size           = struct.unpack('q', sock.recv(8))[0]
+	is_file        = struct.unpack('<i', sock.recv(4))[0]
+	size           = struct.unpack('<q', sock.recv(8))[0]
 
-	checksum       = struct.unpack('64s', sock.recv(64))[0]
+	checksum       = struct.unpack('<64s', sock.recv(64))[0]
 
 	return UploadRequestMessage(filename, is_file, size, checksum)
 
