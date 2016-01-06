@@ -1,0 +1,3 @@
+[submodule "app/src/main/app/src/main/androidcommons"]
+	path = app/src/main/app/src/main/androidcommons
+	url = git@github.com:gurupras/androidcommons.git
