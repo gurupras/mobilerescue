@@ -6,9 +6,15 @@ import hashlib
 from abc import abstractmethod
 
 import multiprocessing
+import threading
 from multiprocessing.pool import ThreadPool
 
 import tempfile
+
+import logging
+from pycommons import generic_logging
+generic_logging.init(level=logging.DEBUG)
+logger = logging.getLogger()
 
 class Message(object):
 	message_length = None
@@ -66,9 +72,7 @@ def recv_file(filename, size, sock):
 		offset += len(data)
 	fd.close()
 
-	if args.verbose:
-		print 'Received file :%s' % (filename)
-		print ''
+	logger.info('Received file :%s\n' % (filename))
 
 def compute_sha256(filename):
 	sha256 = hashlib.sha256()
@@ -86,21 +90,19 @@ def setup_parser():
 	parser.add_argument('-v', '--verbose', action="store_true", help='Enable verbose logging')
 	return parser
 
-def process(sock):
+def process(sock, args):
 	urqm = decode_header(sock)
 	filename = urqm.filename
 	size = urqm.size
 	checksum = urqm.checksum
-	
-	if args.verbose:
-		print 'Filename :' + filename
-		print 'Size     :' + str(size)
+
+	logger.info('Filename :' + filename)
+	logger.info('Size     :' + str(size))
 
 	if filename.startswith('/'):
 		filename = args.out + '/' + filename[1:]
 
-	if args.verbose:
-		print 'Out path :' + filename
+	logger.info('Out path :' + filename)
 
 	if not urqm.is_file:
 		try:
@@ -115,7 +117,7 @@ def process(sock):
 			assert os.path.exists(dirname)
 
 	urm = UploadResponseMessage()
-	
+
 	# If directory, we already created it. Just return with FILE_FOUND
 	if not urqm.is_file:
 		urm.response = UploadResponseMessage.FILE_FOUND
@@ -127,18 +129,16 @@ def process(sock):
 	if os.path.exists(filename):
 		my_checksum = compute_sha256(filename).hexdigest()
 		if my_checksum != checksum:
-			if args.verbose:
-				print 'File exists but checksums don\'t match!'
-				print '  Request checksum   :%s' % (checksum)
-				print '  My checksum        :%s' % (my_checksum)
+			logger.warn('File exists but checksums don\'t match!')
+			logger.warn('  Request checksum   :%s' % (checksum))
+			logger.warn('  My checksum        :%s' % (my_checksum))
 			os.remove(filename)
 			urm.response = UploadResponseMessage.FILE_NOT_FOUND
 			message = urm.build()
 			sock.send(message)
 			recv_file(filename, size, sock)
 		else:
-			if args.verbose:
-				print 'File exists, checksums match!'
+			logger.info('File exists, checksums match!')
 			urm.response = UploadResponseMessage.FILE_FOUND
 			message = urm.build()
 			sock.send(message)
@@ -160,13 +160,12 @@ def main(argv):
 	if not args.out:
 		args.out = tempfile.mkdtemp(dir=os.getcwd())
 	if not os.path.exists(args.out):
-		print "Out path '%s' does not exist!" % (args.out)
+		logger.critical("Out path '%s' does not exist!" % (args.out))
 		sys.exit(-1)
 
-	if args.verbose:
-		print 'Port:          %d' % (args.port)
-		print 'Output path:   %s' % (args.out)
-		print '# Threads:     %d' % (args.threads)
+	logger.info('Port:          %d' % (args.port))
+	logger.info('Output path:   %s' % (args.out))
+	logger.info('# Threads:     %d' % (args.threads))
 
 	# Initialize the pool
 	pool = ThreadPool(processes=args.threads)
@@ -181,17 +180,18 @@ def main(argv):
 	try:
 		server_socket.bind((host, port))
 	except socket.error as e:
-		print 'Bind failed! :' + e[1]
+		logger.critical('Bind failed! :' + e[1])
 		sys.exit(-1)
 
 	server_socket.listen(10)
 
-	if args.verbose: print 'Waiting for incoming connection ...'
+	logger.info('Waiting for incoming connection ...')
 	while 1:
 		sock, addr = server_socket.accept()
-		if args.verbose: print 'Received connection from :%s' % (str(addr))
+		logger.info('Received connection from :%s' % (str(addr)))
 #pool.apply_async(process, sock, callback=None)
-		process(sock)
+		p = multiprocessing.Process(target=process, args=(sock, args))
+		p.start()
 
 if __name__ == "__main__":
 	main(sys.argv)

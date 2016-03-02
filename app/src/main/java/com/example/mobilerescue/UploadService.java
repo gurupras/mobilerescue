@@ -13,6 +13,10 @@ import java.nio.ByteOrder;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -40,7 +44,8 @@ public class UploadService extends Thread implements Runnable {
 	private AtomicBoolean isCancelled;
 	private ArrayList<FileEntry> fileList;
 	private Activity activity;
-
+	private ScheduledExecutorService executor;
+	
 	public UploadService(FileEntry entry, ProgressDialog dialog) {
 		this.entry = entry;
 		this.dialog = dialog;
@@ -56,88 +61,125 @@ public class UploadService extends Thread implements Runnable {
 
 		activity = AndroidApplication.getInstance().getCurrentActivity();
 		activity.runOnUiThread(initDialog);
+		executor = Executors.newScheduledThreadPool(4);
 	}
 
 	@Override
 	public void run() {
+		int failedCount = 0;
 		try {
 			init();
 
 			for (FileEntry entry : fileList) {
 				if (isCancelled.get())
 					break;
-				sendFile(entry);
+				try {
+					executor.execute(new SendFileRunnable(entry));
+				} catch(Exception e) {
+					Log.e(TAG, "Failed to upload", e);
+					makeToast("Failed " + entry.getPath() + ": " + e.getMessage());
+					e.printStackTrace();
+					failedCount++;
+				}
 			}
-
+			executor.shutdown();
+			executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 			dialog.dismiss();
 		} catch (Exception e) {
 			Log.e(TAG, "Failed to upload", e);
+			makeToast("Failed!: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
+			if(failedCount > 0) {
+				makeToast("Failed: " + failedCount);
+			}
 			dialog.cancel();
 		}
 	}
 
-	private void sendFile(FileEntry entry) throws Exception {
-		// Try to do the networking part
-		String hostname = MainActivity.SettingsFragment.hostname;
-		int port = MainActivity.SettingsFragment.port;
-		Socket socket = null;
-		try {
-			Log.d(TAG, "Attempting to connect to :" + hostname + "@" + port);
-			socket = new Socket();
-			socket.setSoTimeout(10000);
-			socket.connect(new InetSocketAddress(hostname, port));
-		} catch (Exception e) {
-			Log.e(TAG, e.getMessage(), e);
-			makeToast("Unable to connect to " + hostname);
-			e.printStackTrace();
-			dialog.cancel();
-			return;
+	private class SendFileRunnable implements Runnable {
+		private FileEntry entry;
+		
+		public SendFileRunnable(FileEntry entry) {
+			this.entry = entry;
 		}
-		final ProgressOutputStream outputStream = new ProgressOutputStream(null);
-		outputStream.setOutputStream(socket.getOutputStream());
-
-		UploadRequestMessage urqm = new UploadRequestMessage(entry);
-		urqm.init();
-		byte[] requestBytes = urqm.build();
-		outputStream.write(requestBytes);
-		outputStream.flush();
-
-		// Wait for server to send info on whether this file is needed
-		UploadResponseMessage ursm = new UploadResponseMessage();
-		ursm.init();
-		ByteBuffer responseBytes = ByteBuffer.allocate(ursm.getMessageLength());
-		DataInputStream socketInputStream = new DataInputStream(socket.getInputStream());
-		socketInputStream.read(responseBytes.array());
-		ursm = (UploadResponseMessage) Message.parseMessage(responseBytes.array());
-
-		File file = entry.getFile();
-		if (ursm.getResponse() == UploadResponseType.FILE_FOUND) {
-			socket.close();
-			if(entry.isFile()) {
-				Log.d(TAG, "File Exists! '" + file.getAbsolutePath() + "'");
-				bytesWritten.addAndGet(file.length());
+		
+		public void run() {
+			try {
+				sendFile(entry);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	
+		private void sendFile(final FileEntry entry) throws Exception {
+			// Try to do the networking part
+			String hostname = MainActivity.SettingsFragment.hostname;
+			int port = MainActivity.SettingsFragment.port;
+			Socket socket = null;
+			try {
+				Log.d(TAG, "Attempting to connect to :" + hostname + "@" + port);
+				socket = new Socket();
+				socket.setSoTimeout(10000);
+				socket.connect(new InetSocketAddress(hostname, port));
+			} catch (Exception e) {
+				Log.e(TAG, e.getMessage(), e);
+				makeToast("Unable to connect to " + hostname);
+				e.printStackTrace();
+				dialog.cancel();
+				return;
+			}
+			
+			activity.runOnUiThread(new Runnable() {
+				public void run() {
+					dialog.setTitle("Transfer: " + entry.getName());
+				}
+			});
+			
+			final ProgressOutputStream outputStream = new ProgressOutputStream(null);
+			outputStream.setOutputStream(socket.getOutputStream());
+	
+			UploadRequestMessage urqm = new UploadRequestMessage(entry);
+			urqm.init();
+			byte[] requestBytes = urqm.build();
+			outputStream.write(requestBytes);
+			outputStream.flush();
+	
+			// Wait for server to send info on whether this file is needed
+			UploadResponseMessage ursm = new UploadResponseMessage();
+			ursm.init();
+			ByteBuffer responseBytes = ByteBuffer.allocate(ursm.getMessageLength());
+			DataInputStream socketInputStream = new DataInputStream(socket.getInputStream());
+			socketInputStream.read(responseBytes.array());
+			ursm = (UploadResponseMessage) Message.parseMessage(responseBytes.array());
+	
+			File file = entry.getFile();
+			if (ursm.getResponse() == UploadResponseType.FILE_FOUND) {
+				socket.close();
+				if(entry.isFile()) {
+					Log.d(TAG, "File Exists! '" + file.getAbsolutePath() + "'");
+					bytesWritten.addAndGet(file.length());
+					activity.runOnUiThread(dialogUpdateRunnable);
+				}
+				return;
+			}
+	
+			long offset = (long) 0;
+			InputStream instream = new FileInputStream(file);
+			int defaultBufferSize = 1024 * 1024;
+			while (offset < file.length()) {
+				int bufferSize = (int) (defaultBufferSize > (file.length() - offset) ? (file.length() - offset) : defaultBufferSize);
+				ByteBuffer fileBuffer = ByteBuffer.allocate(bufferSize);
+				instream.read(fileBuffer.array());
+				outputStream.write(fileBuffer.array());
+				bytesWritten.addAndGet(bufferSize);
+				offset += bufferSize;
 				activity.runOnUiThread(dialogUpdateRunnable);
 			}
-			return;
+			instream.close();
+			outputStream.close();
+			Log.d(TAG, "Finished transferring file '" + file.getAbsolutePath() + "'");
 		}
-
-		long offset = (long) 0;
-		InputStream instream = new FileInputStream(file);
-		int defaultBufferSize = 1024 * 1024;
-		while (offset < file.length()) {
-			int bufferSize = (int) (defaultBufferSize > (file.length() - offset) ? (file.length() - offset) : defaultBufferSize);
-			ByteBuffer fileBuffer = ByteBuffer.allocate(bufferSize);
-			instream.read(fileBuffer.array());
-			outputStream.write(fileBuffer.array());
-			bytesWritten.addAndGet(bufferSize);
-			offset += bufferSize;
-			activity.runOnUiThread(dialogUpdateRunnable);
-		}
-		instream.close();
-		outputStream.close();
-		Log.d(TAG, "Finished transferring file '" + file.getAbsolutePath() + "'");
 	}
 
 	private Runnable dialogUpdateRunnable = new Runnable() {
@@ -149,9 +191,10 @@ public class UploadService extends Thread implements Runnable {
 	private Runnable initDialog = new Runnable() {
 		public void run() {
 			dialog.setMax(100);
+			dialog.setProgress(0);
 			dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
 			dialog.setIndeterminate(false);
-			dialog.setTitle("Transfer");
+			dialog.setTitle(entry.getName());
 			dialog.setCancelable(false);
 			dialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 				public void onClick(DialogInterface dialog, int which) {
