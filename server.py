@@ -100,7 +100,9 @@ def process(sock, args):
 	logger.info('Size     :' + str(size))
 
 	if filename.startswith('/'):
-		filename = args.out + '/' + filename[1:]
+		filename = os.path.join(args.out, filename[1:])
+	else:
+		filename = os.path.join(args.out, filename)
 
 	logger.info('Out path :' + filename)
 
