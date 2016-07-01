@@ -5,7 +5,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 import com.example.androidcommons.AndroidApplication;
+import com.example.androidcommons.FileEntry;
 import com.example.androidcommons.FileExplorerFragment;
+import com.example.androidcommons.FileExplorerFragment.FilesAdapter;
 import com.example.androidcommons.FileMetadata.FileType;
 
 import android.app.AlertDialog;

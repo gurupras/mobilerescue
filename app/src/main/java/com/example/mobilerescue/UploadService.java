@@ -45,7 +45,9 @@ public class UploadService extends Thread implements Runnable {
 	private ArrayList<FileEntry> fileList;
 	private Activity activity;
 	private ScheduledExecutorService executor;
-	
+
+	public static int bufferSize = 64 * 1024;
+
 	public UploadService(FileEntry entry, ProgressDialog dialog) {
 		this.entry = entry;
 		this.dialog = dialog;
@@ -166,7 +168,7 @@ public class UploadService extends Thread implements Runnable {
 	
 			long offset = (long) 0;
 			InputStream instream = new FileInputStream(file);
-			int defaultBufferSize = 1024 * 1024;
+			int defaultBufferSize = bufferSize;
 			while (offset < file.length()) {
 				int bufferSize = (int) (defaultBufferSize > (file.length() - offset) ? (file.length() - offset) : defaultBufferSize);
 				ByteBuffer fileBuffer = ByteBuffer.allocate(bufferSize);
