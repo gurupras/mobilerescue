@@ -9,6 +9,7 @@ import java.io.File;
 
 public class AndroidApplication extends Application {
 	public static File externalPath = new File(Environment.getExternalStorageDirectory().getAbsolutePath());
+	//public static File externalPath = new File("/sdcard");
 	
 	private static AndroidApplication instance;
     private Activity mCurrentActivity;

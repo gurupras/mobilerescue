@@ -131,6 +131,7 @@ public class DownloadService extends Thread implements Runnable {
 		}
 		socket.getOutputStream().write(ursm.build());
 		if(shouldReceive) {
+			totalSize.set(urqm.getFileSize());
 			activity.runOnUiThread(initDialog);
 			receiveFile(urqm, socket);
 		}
@@ -139,6 +140,15 @@ public class DownloadService extends Thread implements Runnable {
 		// Try to do the networking part
 		String path = urqm.getPath();
 		File f = new File(path);
+		File parent = f.getParentFile();
+		try {
+			if(!parent.exists()) {
+				parent.mkdirs();
+			}
+		} catch(Exception e) {
+			Log.e(TAG, "Failed to create directories for file: " + f.getAbsolutePath());
+		}
+
 		FileOutputStream outstream = new FileOutputStream(f);
 		int defaultBufferSize = 1024 * 1024;
 		long offset = 0;
@@ -153,6 +163,7 @@ public class DownloadService extends Thread implements Runnable {
 			offset += bufferSize;
 			activity.runOnUiThread(dialogUpdateRunnable);
 		}
+		dialog.dismiss();
 		instream.close();
 		outstream.close();
 		Log.d(TAG, "Finished obtaining file '" + f.getAbsolutePath() + "'");
