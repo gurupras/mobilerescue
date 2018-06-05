@@ -1,0 +1,32 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="me.gurupras.mobilerescue.MainActivity" >
+
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="100"
+        android:title="Settings"
+        android:icon="@drawable/ic_settings_white_24dp"
+        app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/action_sort"
+        android:title="Sort"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/action_sort_name"
+                android:title="By Name"
+                app:showAsAction="never"/>
+            <item
+                android:id="@+id/action_sort_size"
+                android:title="By Size"
+                app:showAsAction="never"/>
+            <item
+                android:id="@+id/action_sort_modified"
+                android:title="By Last Modified"
+                app:showAsAction="never"/>
+        </menu>
+    </item>
+</menu>
