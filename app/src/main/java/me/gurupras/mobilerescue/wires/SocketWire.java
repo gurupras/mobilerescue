@@ -65,7 +65,6 @@ public class SocketWire extends Wire {
 
         File file = entry.getFile();
         if (ursm.getResponse() == UploadResponseMessage.UploadResponseType.FILE_FOUND) {
-            socket.close();
             for(IWireEvents listener : listeners) {
                 listener.onRemoteFileExists(urqm);
             }
@@ -86,12 +85,16 @@ public class SocketWire extends Wire {
             offset += bufferSize;
         }
         instream.close();
-        outputStream.close();
         Log.d(TAG, "Finished transferring file '" + file.getAbsolutePath() + "'");
     }
 
     @Override
     public void download(FileEntry src) throws Exception {
 
+    }
+
+    @Override
+    public void disconnect() throws Exception {
+        socket.close();
     }
 }

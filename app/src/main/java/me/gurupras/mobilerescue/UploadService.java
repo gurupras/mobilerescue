@@ -62,6 +62,9 @@ public class UploadService extends Thread implements Runnable {
 	@Override
 	public void run() {
 		int failedCount = 0;
+		PowerManager pm = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
+		final PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "upload wakelock");
+		wakeLock.acquire();
 		try {
 			init();
 
@@ -89,6 +92,7 @@ public class UploadService extends Thread implements Runnable {
 				makeToast("Failed: " + failedCount);
 			}
 			dialog.cancel();
+			wakeLock.release();
 		}
 	}
 

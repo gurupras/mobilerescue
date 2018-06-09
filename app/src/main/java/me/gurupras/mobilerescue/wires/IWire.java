@@ -11,4 +11,5 @@ public interface IWire {
     public void connect(String hostname, int port, String ...extras) throws Exception;
     public void upload(FileEntry entry) throws Exception;
     public void download(FileEntry src) throws Exception;
+    public void disconnect() throws Exception;
 }
