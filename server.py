@@ -14,7 +14,7 @@ import tempfile
 
 import logging
 from pycommons import generic_logging
-generic_logging.init(level=logging.DEBUG)
+generic_logging.init(level=logging.WARN)
 logger = logging.getLogger()
 
 class Message(object):
@@ -96,71 +96,78 @@ def setup_parser():
 	return parser
 
 def process(sock, args):
-	urqm = decode_header(sock)
-	filename = urqm.filename
-	size = urqm.size
-	checksum = urqm.checksum
-
-	logger.info('Filename :' + filename)
-	logger.info('Size     :' + str(size))
-
-	if filename.startswith('/'):
-		filename = os.path.join(args.out, filename[1:])
-	else:
-		filename = os.path.join(args.out, filename)
-
-	logger.info('Out path :' + filename)
-
-	if not urqm.is_file:
+	while True:
 		try:
-			os.makedirs(filename)
-		except:
-			assert os.path.exists(filename)
-	else:
-		dirname = os.path.dirname(filename)
-		try:
-			os.makedirs(dirname)
-		except Exception:
-			assert os.path.exists(dirname)
+			urqm = decode_header(sock)
+			filename = urqm.filename
+			size = urqm.size
+			checksum = urqm.checksum
 
-	urm = UploadResponseMessage()
+			logger.info('Filename :' + filename)
+			logger.info('Size     :' + str(size))
 
-	# If directory, we already created it. Just return with FILE_FOUND
-	if not urqm.is_file:
-		urm.response = UploadResponseMessage.FILE_FOUND
-		message = urm.build()
-		sock.send(message)
-		return
+			if filename.startswith('/'):
+				filename = os.path.join(args.out, filename[1:])
+			else:
+				filename = os.path.join(args.out, filename)
 
-	# It's a file..handle it
-	if os.path.exists(filename):
-		my_checksum = compute_sha256(filename).hexdigest()
-		if my_checksum != checksum:
-			logger.warn('File exists but checksums don\'t match!')
-			logger.warn('  Request checksum   :%s' % (checksum))
-			logger.warn('  My checksum        :%s' % (my_checksum))
-			os.remove(filename)
-			urm.response = UploadResponseMessage.FILE_NOT_FOUND
-			message = urm.build()
-			sock.send(message)
-			recv_file(filename, size, sock)
-		else:
-			logger.info('File exists, checksums match!')
-			# Update last modified if needed
-			urm.response = UploadResponseMessage.FILE_FOUND
-			message = urm.build()
-			sock.send(message)
-	else:
-		urm.response = UploadResponseMessage.FILE_NOT_FOUND
-		message = urm.build()
-		sock.send(message)
-		recv_file(filename, size, sock)
+			logger.info('Out path :' + filename)
+
+			if not urqm.is_file:
+				try:
+					os.makedirs(filename)
+				except:
+					assert os.path.exists(filename)
+			else:
+				dirname = os.path.dirname(filename)
+				try:
+					os.makedirs(dirname)
+				except Exception:
+					assert os.path.exists(dirname)
+
+			urm = UploadResponseMessage()
+
+			# If directory, we already created it. Just return with FILE_FOUND
+			if not urqm.is_file:
+				urm.response = UploadResponseMessage.FILE_FOUND
+				message = urm.build()
+				sock.send(message)
+				print 'Responded with FILE_FOUND (was directory). Looping back ...'
+				continue
+
+			# It's a file..handle it
+			if os.path.exists(filename):
+				my_checksum = compute_sha256(filename).hexdigest()
+				if my_checksum != checksum:
+					logger.warn('File exists but checksums don\'t match!')
+					logger.warn('  Request checksum   :%s' % (checksum))
+					logger.warn('  My checksum        :%s' % (my_checksum))
+					os.remove(filename)
+					urm.response = UploadResponseMessage.FILE_NOT_FOUND
+					message = urm.build()
+					sock.send(message)
+					recv_file(filename, size, sock)
+				else:
+					logger.info('File exists, checksums match!')
+					urm.response = UploadResponseMessage.FILE_FOUND
+					message = urm.build()
+					sock.send(message)
+					continue
+			else:
+				urm.response = UploadResponseMessage.FILE_NOT_FOUND
+				message = urm.build()
+				sock.send(message)
+				recv_file(filename, size, sock)
+		except Exception, e:
+			print e
+			return
 	# After doing anything with this file, update its times
 	if urqm.last_access == 0:
 		urqm.last_access = time.time() * 1000
 	if urqm.last_modified == 0:
 		urqm.last_modified = time.time() * 1000
 	os.utime(filename, ns=(urqm.last_access / 1000, urqm.last_modified / 1000))
+	print 'Finished handling file. Looping back ...'
 
 def main(argv):
 	global args
@@ -206,6 +213,7 @@ def main(argv):
 #pool.apply_async(process, sock, callback=None)
 		p = multiprocessing.Process(target=process, args=(sock, args))
 		p.start()
+		#process(sock, args)
 
 if __name__ == "__main__":
 	main(sys.argv)
