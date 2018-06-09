@@ -24,7 +24,7 @@ import me.gurupras.androidcommons.FilesAdapter;
 import me.gurupras.androidcommons.Helper;
 
 public class MainActivity extends AppCompatActivity {
-	ProgressDialog progressDialog;
+	TransferProgressDialog progressDialog;
 	public static SharedPreferences settings;
 	public static AndroidApplication application;
 	public static DownloadService downloadService;

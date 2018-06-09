@@ -48,7 +48,7 @@ public class RescueFileExplorerFragment extends FileExplorerFragment {
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		this.activity = (MainActivity) AndroidApplication.getInstance().getCurrentActivity();
-		this.activity.progressDialog = new ProgressDialog(activity);
+		this.activity.progressDialog = new TransferProgressDialog(activity);
 		return super.onCreateView(inflater, container, savedInstanceState);
 	}
 

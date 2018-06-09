@@ -29,14 +29,14 @@ public class UploadService extends Thread implements Runnable {
 
 	private boolean shouldDeleteAfterUpload;
 	private FileEntry entry;
-	private ProgressDialog dialog;
+	private TransferProgressDialog dialog;
 	private AtomicLong totalSize, bytesWritten;
 	private AtomicBoolean isCancelled;
 	private ArrayList<FileEntry> fileList;
 	private Activity activity;
 	private ScheduledExecutorService executor;
 
-	public UploadService(FileEntry entry, ProgressDialog dialog, boolean shouldDeleteAfterUpload) {
+	public UploadService(FileEntry entry, TransferProgressDialog dialog, boolean shouldDeleteAfterUpload) {
 		this.shouldDeleteAfterUpload = shouldDeleteAfterUpload;
 		this.entry = entry;
 		this.dialog = dialog;
@@ -45,7 +45,7 @@ public class UploadService extends Thread implements Runnable {
 		this.isCancelled = new AtomicBoolean(false);
 	}
 
-	public UploadService(FileEntry entry, ProgressDialog dialog) {
+	public UploadService(FileEntry entry, TransferProgressDialog dialog) {
 		this(entry, dialog, false);
 	}
 
@@ -100,6 +100,9 @@ public class UploadService extends Thread implements Runnable {
 		}
 		
 		public void run() {
+			if (isCancelled.get()) {
+				return;
+			}
 			try {
 				sendFile(entry);
 			} catch (Exception e) {
@@ -122,6 +125,8 @@ public class UploadService extends Thread implements Runnable {
 					if(entry.isFile()) {
 						Log.d(TAG, "File Exists! '" + entry.getPath() + "'");
 					}
+					bytesWritten.addAndGet(entry.getSize());
+					activity.runOnUiThread(dialogUpdateRunnable);
 				}
 
 				@Override
@@ -152,13 +157,13 @@ public class UploadService extends Thread implements Runnable {
 
 	private Runnable dialogUpdateRunnable = new Runnable() {
 		public void run() {
-			dialog.setProgress((int) ((bytesWritten.get() * 100) / totalSize.get()));
+			dialog.setProgress(bytesWritten.get());
 		}
 	};
 
 	private Runnable initDialog = new Runnable() {
 		public void run() {
-			dialog.setMax(totalSize.intValue());
+			dialog.setMax(totalSize.longValue());
 			dialog.setProgress(0);
 			dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
 			dialog.setIndeterminate(false);
