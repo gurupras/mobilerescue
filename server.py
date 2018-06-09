@@ -160,7 +160,7 @@ def process(sock, args):
 		urqm.last_access = time.time() * 1000
 	if urqm.last_modified == 0:
 		urqm.last_modified = time.time() * 1000
-	os.utime(filename, ns=(urqm.last_access * 1000000, urqm.last_modified * 1000000))
+	os.utime(filename, ns=(urqm.last_access / 1000, urqm.last_modified / 1000))
 
 def main(argv):
 	global args
