@@ -1,5 +1,6 @@
 import socket
 import sys, struct, os
+import time
 import argparse
 import hashlib
 
@@ -40,10 +41,12 @@ class UploadResponseMessage(Message):
 		return header
 
 class UploadRequestMessage(Message):
-	def __init__(self, filename, is_file, size, checksum):
+	def __init__(self, filename, is_file, size, last_access, last_modified, checksum):
 		self.filename = filename
 		self.is_file = True if is_file == 1 else False
 		self.size = size
+		self.last_access = last_access
+		self.last_modified = last_modified
 		self.checksum = checksum
 
 def decode_header(sock):
@@ -55,10 +58,12 @@ def decode_header(sock):
 						sock.recv(filename_len))[0]
 	is_file        = struct.unpack('<i', sock.recv(4))[0]
 	size           = struct.unpack('<q', sock.recv(8))[0]
+	last_access    = struct.unpack('<q', sock.recv(8))[0]
+	last_modified  = struct.unpack('<q', sock.recv(8))[0]
 
 	checksum       = struct.unpack('<64s', sock.recv(64))[0]
 
-	return UploadRequestMessage(filename, is_file, size, checksum)
+	return UploadRequestMessage(filename, is_file, size, last_access, last_modified, checksum)
 
 
 def recv_file(filename, size, sock):
@@ -141,6 +146,7 @@ def process(sock, args):
 			recv_file(filename, size, sock)
 		else:
 			logger.info('File exists, checksums match!')
+			# Update last modified if needed
 			urm.response = UploadResponseMessage.FILE_FOUND
 			message = urm.build()
 			sock.send(message)
@@ -149,6 +155,12 @@ def process(sock, args):
 		message = urm.build()
 		sock.send(message)
 		recv_file(filename, size, sock)
+	# After doing anything with this file, update its times
+	if urqm.last_access == 0:
+		urqm.last_access = time.time() * 1000
+	if urqm.last_modified == 0:
+		urqm.last_modified = time.time() * 1000
+	os.utime(filename, ns=(urqm.last_access * 1000000, urqm.last_modified * 1000000))
 
 def main(argv):
 	global args

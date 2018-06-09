@@ -5,6 +5,10 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
@@ -23,6 +27,9 @@ public class UploadRequestMessage extends Message {
 	private String checksum;
 	private int isFile;
 
+	private long lastAccess;
+	private long lastModified;
+
 	static {
 		Message.register(UploadRequestMessage.class);
 	}
@@ -36,6 +43,8 @@ public class UploadRequestMessage extends Message {
 		this.setEntry(entry);
 		this.setPath(entry.getPath());
 		this.setFileSize(entry.getSize());
+		this.setLastAccess(0);
+		this.setLastModified(entry.getFile().lastModified());
 		this.isFile = entry.isFile() == true ? 1 : 0;
 	}
 
@@ -47,6 +56,8 @@ public class UploadRequestMessage extends Message {
 				getEntry().getPath().length() /* path */ +
 				(Integer.SIZE / 8) /* isFile */ +
 				(Long.SIZE / 8) /* file size */ +
+				(Long.SIZE / 8) /* last access */ +
+				(Long.SIZE / 8) /* last modified */ +
 				64 /* sha-256 */
 		);
 	}
@@ -70,6 +81,9 @@ public class UploadRequestMessage extends Message {
 		}
 		buffer.putLong(getEntry().getSize());
 
+		buffer.putLong(lastAccess); /* last access */
+		buffer.putLong(lastModified); /* last modified */
+
 		byte[] hash = null;
 		if(isFile == 1) {
 			hash = MessageHelper.getHash(this.entry);
@@ -91,6 +105,8 @@ public class UploadRequestMessage extends Message {
 		this.setPath(new String(pathBytes, "UTF-8"));
 
 		this.setFileSize(buffer.getLong());
+		this.setLastAccess(buffer.getLong());
+		this.setLastModified(buffer.getLong());
 
 		if(buffer.hasRemaining()) {
 			throw new Exception("Message format error! Bytes Remaining :" + buffer.remaining());
@@ -129,6 +145,16 @@ public class UploadRequestMessage extends Message {
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
 		iStream.read(buffer.array());
 		long size = buffer.getLong();
+
+		buffer = ByteBuffer.allocate(Long.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		long lastAccess = buffer.getLong();
+
+		buffer = ByteBuffer.allocate(Long.SIZE / 8);
+		buffer.order(ByteOrder.LITTLE_ENDIAN);
+		iStream.read(buffer.array());
+		long lastModified = buffer.getLong();
 		
 		buffer = ByteBuffer.allocate(64);
 		buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -139,6 +165,8 @@ public class UploadRequestMessage extends Message {
 		this.fileSize = size;
 		this.isFile = isFile;
 		this.path = filename;
+		setLastAccess(lastAccess);
+		setLastModified(lastModified);
 	}
 
 	/**
@@ -190,13 +218,27 @@ public class UploadRequestMessage extends Message {
 		this.fileSize = fileSize;
 	}
 
+	/**
+	 * @param lastAccess the lastAccess time to set
+	 */
+	public void setLastAccess(long lastAccess) {
+		this.lastAccess = lastAccess;
+	}
+
+	/**
+	 * @param lastModified the lastModified time to set
+	 */
+	public void setLastModified(long lastModified) {
+		this.lastModified = lastModified;
+	}
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder(super.toString());
-		builder.append(pad("entry", 30) + ":" + entry + "\n");
-		builder.append(pad("path", 30)  + ":" + path + "\n");
-		builder.append(pad("fileSize", 30)    + ":" + fileSize + "\n");
-		builder.append(pad("checksum", 30)    + ":" + checksum + "\n");
+		builder.append(pad("entry", 30)        + ":" + entry        + "\n");
+		builder.append(pad("path", 30)         + ":" + path         + "\n");
+		builder.append(pad("fileSize", 30)     + ":" + fileSize     + "\n");
+		builder.append(pad("checksum", 30)     + ":" + checksum     + "\n");
+		builder.append(pad("lastModified", 30) + ":" + lastModified + "\n");
 		return builder.toString();
 	}
 }
