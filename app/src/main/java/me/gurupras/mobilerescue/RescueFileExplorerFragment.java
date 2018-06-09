@@ -34,6 +34,7 @@ import me.gurupras.androidcommons.TimeKeeper;
 
 public class RescueFileExplorerFragment extends FileExplorerFragment {
 	private MainActivity activity;
+	private boolean wasDialogShowingOnPause = false;
 
 	public RescueFileExplorerFragment() {
 		super();
@@ -43,6 +44,23 @@ public class RescueFileExplorerFragment extends FileExplorerFragment {
 	public void onResume() {
 		super.onResume();
 		this.filesListView.setOnItemLongClickListener(filesListViewItemLongClickListener);
+		if (wasDialogShowingOnPause) {
+			activity.runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					activity.progressDialog.show();
+				}
+			});
+		}
+	}
+
+	@Override
+	public void onPause() {
+		if (activity.progressDialog.isShowing()) {
+			wasDialogShowingOnPause = true;
+		}
+		super.onPause();
+
 	}
 
 	@Override
